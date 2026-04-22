@@ -1,10 +1,9 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Serial.setTimeout(1000);
 }
 
 void loop() {
@@ -16,9 +15,4 @@ void loop() {
       Serial.println("WORLD");
     }
   }
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
 }
