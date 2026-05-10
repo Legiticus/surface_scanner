@@ -8,6 +8,7 @@ import numpy as np
 import time
 import serial.tools.list_ports
 import serial
+import cv2
 
 
 if __name__ == "__main__":
@@ -43,19 +44,37 @@ if __name__ == "__main__":
 	time.sleep(2) # Allow time for device to connect
 	device.reset_input_buffer() # Flush input buffer
 
-
-	####################
-	#	3. Communicate with device
-	####################
-
 	print('Sending Init Message to Collector')
 	device.write(b'HELLO\n')
 
-	while True:
-		if device.in_waiting > 0:
-			line = device.readline()
-			# Convert bytes to string
-			decoded_line = line.decode('utf-8').strip()
-			print(f'Received: \"{decoded_line}\"')
-			device.write(b'HELLO\n')
 	
+
+
+	####################
+	#	3. Connect to Camera
+	####################
+
+	print("Connecting to Camera...")
+	cap = cv2.VideoCapture(0)
+
+	# Check if the camera correctly opened
+	if not cap.isOpened():
+		raise(RuntimeError("Failed to open camera"))
+	print("Connected to Camera")
+	
+	# Display camera frames
+	while True:
+		ret, frame = cap.read()
+
+		if not ret:
+			print("Error: Failed to recieve camera frames. Exiting...")
+			exit()
+		
+		cv2.imshow('Cam Feed', frame)
+
+		# bitwise AND operation used to secure the last character byte only
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break
+
+	cap.release()
+	cv2.destroyAllWindows()
