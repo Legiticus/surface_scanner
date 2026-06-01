@@ -14,7 +14,7 @@ import sys
 
 from Scanner import Scanner
 
-
+SCAN_HEIGHT = 100 #mm
 OPTIONS = "c:hv"
 
 is_verbose = False
@@ -88,8 +88,10 @@ if __name__ == "__main__":
 	time.sleep(1) # Allow time for device to connect
 	device.reset_input_buffer() # Flush input buffer
 
-	print('Sending Init Message to Collector')
-	device.write(b'HELLO\n')
+	print('Sending ZERO Message to Controller')
+	device.write(b'ZERO\n')
+
+	# Getting response from Controller
 
 
 	####################
@@ -98,6 +100,11 @@ if __name__ == "__main__":
 
 	scanner = Scanner(125,35,0)
 	scanner.connect()
+
+	####################
+	#	4. Display Feed and Take Measurements
+	####################
+	is_collecting = True
 	
 	# Display camera frames
 	if debug_camera_mode in ("processed", "raw"):

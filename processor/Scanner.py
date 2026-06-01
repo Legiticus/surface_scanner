@@ -39,12 +39,24 @@ class Scanner:
 		self.vcap = None
 		self.capture_stopped = False
 
+		# Position data
+		self.current_z = 0
+
 		# Shared resources
 		self.frame = None
 		self.hsv_frame = None
 		self.processed_frame = None
 		self.mask = None
 		self.laser_line = None
+
+		self.total_points = []
+
+		# Calibration data
+		self.fx = 0
+		self.fy = 0
+		self.cu = 0
+		self.cv = 0
+		self.__read_calibration_data()
 
 
 	# @brief Handles the mouse callback event to print the color at that pixel for color selection
@@ -59,6 +71,16 @@ class Scanner:
 			pixel = self.hsv_frame[y,x]
 			hsv_px = cv2.cvtColor(np.uint8([[pixel]]), cv2.COLOR_BGR2HSV)[0][0]
 			print(f"HSV values at [{x},{y}]: {hsv_px}")
+	
+	def __read_calibration_data(self):
+		path = "./Calibration/camera_calibration.yaml"
+		cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+		cam_matrix = cv_file.getNode("camera_matrix").mat()
+		cv_file.release()
+		self.fx = cam_matrix[0,0]
+		self.fy = cam_matrix[1,1]
+		self.cu = cam_matrix[0,2]
+		self.cv = cam_matrix[1,2]
 
 	def update_capture(self):
 		ret, frame = self.vcap.read()
@@ -76,8 +98,6 @@ class Scanner:
 		high_mask = cv2.inRange(self.hsv_frame, HIGH_RED_LOW, HIGH_RED_HIGH)
 		self.mask = (low_mask + high_mask)
 		self.processed_frame = cv2.bitwise_and(frame, frame, mask=(self.mask))
-		
-
 	
 	# @brief Connects to the camera
 	def connect(self):
@@ -119,8 +139,11 @@ class Scanner:
 		elif self.debug_camera_mode == "raw":
 			cv2.imshow('Camera Feed', self.frame)
 	
-	def capture_line_data(self):
-		current_gframe = cv2.cvtColor(self.processed_frame, cv2.COLOR_BGR2GRAY)
+	# @brief takes in a weighted processed grayscale frame and analyses it to find the laser line
+	# @param weighted_frame	- the weighted processed grayscale frame
+	# @returns None, but places laser line data in memeber variable laser_line
+	def __capture_line_data(self, weighted_frame):
+		current_gframe = weighted_frame
 		height, width = current_gframe.shape
 		self.laser_line = np.zeros((width,2))
 		position_vector = np.arange(0,height)
@@ -135,8 +158,65 @@ class Scanner:
 					self.laser_line[i] = ((i), (numerator/denomitator))
 				else:
 					self.laser_line[i] = (i,0)
+	
+	# @brief processed the line data and returns an array of points
+	# @returns the array of points on the surface
+	def __process_line_data(self):
+		# Part 1: transform cordinate system
+		width = self.laser_line.shape[0]
+		points = np.zeros((width, 3), float)
 
-		pass
+		# Calculate commonly used calculations to save time and inprove readability
+		sint = np.sin(self.cam_angle)
+		cost = np.cos(self.cam_angle)
+		hz = self.H - self.current_z
+
+		# calculates x cord in real world space
+		def x(u,v):
+			num = self.fy * cost - (v - self.cv) * sint
+			denom = self.fy * sint + (v - self.cv) * cost
+			if abs(denom) < 1e-14: raise ValueError("divide by zero")
+			return hz * num/denom
+
+		# calculates y cord in real world space
+		def y(u,v):
+			num = hz * (u - self.cu)
+			denom = self.fy * sint + (v - self.cv)
+			if abs(denom) < 1e-14: raise ValueError("divide by zero")
+			return -self.fy/self.fx * num/denom
+
+		for i in range(width):
+			# Division by zero handled
+			try:
+				X = x(self.laser_line[i,0], self.laser_line[i,1])
+				Y = y(self.laser_line[i,0], self.laser_line[i,1])
+				points[i,:] = (X, Y, self.current_z)
+			except ValueError:
+				points[i,:] = None
+		
+		return points
+
+
+
+
+	
+	# @brief takes a sample of the laser line by taking the average values over multiple images then processing weighted image to find the line
+	# @param sample_count	- the number of samples to use
+	# @returns None, but adds points to total points
+	def sample_laser_line(self, sample_count: int = 1):
+		if (sample_count < 1): raise ValueError("cannot sample less than 1 samples")
+		height, width = self.processed_frame.shape
+		weighted_frame = np.zeros((height,width), float)
+		for i in range(sample_count):
+			weighted_frame += cv2.cvtColor(self.processed_frame, cv2.COLOR_BGR2GRAY)
+			self.update_capture()
+		weighted_frame /= sample_count
+		self.__capture_line_data(weighted_frame)
+		points = self.__process_line_data()
+		for i in range(points.shape[0]):
+			if points[i,:] != None:
+				self.total_points.append(points[i,:])
+
 
 
 	# @brief Shuts down the scanner
