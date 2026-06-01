@@ -50,17 +50,6 @@ void setup() {
 }
 
 void loop() {
-  
-  while (digitalRead(SENSE_PIN) == LIMIT_ON) {
-    Serial.println("Limit triggered");
-    stepper.move(DIR_UP * STEPS_PER_MM * 5);
-    stepper.runToPosition();
-  }
-
-  stepper.move(DIR_DOWN * STEPS_PER_MM * 10);
-  stepper.runToPosition();
-
-
 
   /*
   if (Serial.available() > 0) {

@@ -10,16 +10,16 @@ import time
 import cv2
 
 # Conservative Values
-#LOW_RED_LOW = np.array((0,80,130))
-#LOW_RED_HIGH = np.array((10,255,255))
-#HIGH_RED_LOW = np.array((150,0,120))
-#HIGH_RED_HIGH = np.array((180,255,255))
-
-# Controlled Enviorment Values
-LOW_RED_LOW = np.array((0,30,80))
-LOW_RED_HIGH = np.array((20,255,255))
+LOW_RED_LOW = np.array((0,80,130))
+LOW_RED_HIGH = np.array((10,255,255))
 HIGH_RED_LOW = np.array((150,0,120))
 HIGH_RED_HIGH = np.array((180,255,255))
+
+# Controlled Enviorment Values
+#LOW_RED_LOW = np.array((0,30,80))
+#LOW_RED_HIGH = np.array((20,255,255))
+#HIGH_RED_LOW = np.array((150,0,120))
+#HIGH_RED_HIGH = np.array((180,255,255))
 
 MIN_TOTAL_INTENSITY = 50
 
@@ -112,7 +112,9 @@ class Scanner:
 		# displaying camera feed if specified
 		if self.debug_camera_mode == "processed":
 			for point in self.laser_line:
-				self.processed_frame[point[0],point[1]] = (0,255,0)
+				row = int(point[1])
+				col = int(point[0])
+				self.processed_frame[(row-1):(row+2),col] = (0,255,0)
 			cv2.imshow('Camera Feed', self.processed_frame)
 		elif self.debug_camera_mode == "raw":
 			cv2.imshow('Camera Feed', self.frame)
@@ -120,12 +122,20 @@ class Scanner:
 	def capture_line_data(self):
 		current_gframe = cv2.cvtColor(self.processed_frame, cv2.COLOR_BGR2GRAY)
 		height, width = current_gframe.shape
-		self.laser_line = np.zeros((width), float)
-		position_vector = np.arange(0,width)
+		self.laser_line = np.zeros((width,2))
+		position_vector = np.arange(0,height)
 		# Iterate through collumns and determine line point via weighed average
 		for i in range(width):
 			if not np.sum(current_gframe[:, i]) < MIN_TOTAL_INTENSITY: # only add point to line if there is enough total intensity in that col
-				self.laser_line[i] (i, (1/width) * (np.sum(current_gframe[:, i] * position_vector)/np.sum(position_vector)))
+
+				numerator = np.sum(current_gframe[:, i] * position_vector)
+				denomitator = np.sum(current_gframe[:, i])
+
+				if denomitator != 0: # avoid division by zero (note that zero is the default value for the array)
+					self.laser_line[i] = ((i), (numerator/denomitator))
+				else:
+					self.laser_line[i] = (i,0)
+
 		pass
 
 
