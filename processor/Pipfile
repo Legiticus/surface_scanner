@@ -5,8 +5,9 @@ name = "pypi"
 
 [packages]
 numpy = "*"
-pyserial = "*"
 opencv-python = "*"
+matplotlib = "*"
+pyserial = "*"
 
 [dev-packages]
 
