@@ -5,8 +5,7 @@
 """
 
 import numpy as np
-import threading
-import time
+import matplotlib.pyplot as plt
 import cv2
 
 # Conservative Values
@@ -57,6 +56,16 @@ class Scanner:
 		self.cu = 0
 		self.cv = 0
 		self.__read_calibration_data()
+
+	def getHeight(self):
+		return self.current_z
+	
+	def setHeight(self, height: float):
+		self.current_z = height
+
+	def moveHeight(self, inc: float):
+		self.current_z += inc
+		return self.current_z
 
 
 	# @brief Handles the mouse callback event to print the color at that pixel for color selection
@@ -192,12 +201,9 @@ class Scanner:
 				Y = y(self.laser_line[i,0], self.laser_line[i,1])
 				points[i,:] = (X, Y, self.current_z)
 			except ValueError:
-				points[i,:] = None
+				points[i,:] = float('nan')
 		
 		return points
-
-
-
 
 	
 	# @brief takes a sample of the laser line by taking the average values over multiple images then processing weighted image to find the line
@@ -205,7 +211,8 @@ class Scanner:
 	# @returns None, but adds points to total points
 	def sample_laser_line(self, sample_count: int = 1):
 		if (sample_count < 1): raise ValueError("cannot sample less than 1 samples")
-		height, width = self.processed_frame.shape
+		self.update_capture()
+		height, width, chn = self.processed_frame.shape # Channel is unused
 		weighted_frame = np.zeros((height,width), float)
 		for i in range(sample_count):
 			weighted_frame += cv2.cvtColor(self.processed_frame, cv2.COLOR_BGR2GRAY)
@@ -214,13 +221,32 @@ class Scanner:
 		self.__capture_line_data(weighted_frame)
 		points = self.__process_line_data()
 		for i in range(points.shape[0]):
-			if points[i,:] != None:
+			if not np.isnan(points[i,:]).any():
 				self.total_points.append(points[i,:])
 
+	# @brief exports the point data
+	# @return a copy of the points
+	def export_points(self):
+		return self.points.copy()
+	
+	# @brief exports the point data
+	# @return a copy of the points
+	def plot_points(self):
 
+		# Unpack points
+		X, Y, Z = zip(*self.total_points)
+
+		fig = plt.figure()
+		ax = fig.add_subplot(projection='3d')
+		ax.scatter(X, Y, Z)
+		ax.set_xlabel("X (mm)")
+		ax.set_ylabel("Y (mm)")
+		ax.set_zlabel("Z (mm)")
+		plt.show()
 
 	# @brief Shuts down the scanner
 	def shutdown(self):
+		self.points = None
 		self.capture_stopped = True
 		if self.vcap:
 			self.vcap.release()

@@ -14,7 +14,7 @@ import sys
 
 from Scanner import Scanner
 
-SCAN_HEIGHT = 100 #mm
+SCAN_HEIGHT = 10 #mm
 OPTIONS = "c:hv"
 
 is_verbose = False
@@ -85,14 +85,23 @@ if __name__ == "__main__":
 
 	print('Connecting to Collector...')
 	device = serial.Serial(devicePort, 115200)
-	time.sleep(1) # Allow time for device to connect
+	time.sleep(2) # Allow time for device to connect
 	device.reset_input_buffer() # Flush input buffer
+	device.reset_output_buffer()
 
 	print('Sending ZERO Message to Controller')
 	device.write(b'ZERO\n')
 
 	# Getting response from Controller
-
+	raw_data = device.readline()
+	line = raw_data.decode('utf-8').strip()
+	words = line.split(maxsplit=1)
+	if words[0] != "ZERO_SUCCESS":
+		print("COLLECTOR:\t", words)
+		print("Error zeroing scan head, exiting...")
+		exit(1)
+	else:
+		print("COLLECTOR:", words)
 
 	####################
 	#	3. Connect to Camera
@@ -104,15 +113,28 @@ if __name__ == "__main__":
 	####################
 	#	4. Display Feed and Take Measurements
 	####################
-	is_collecting = True
-	
-	# Display camera frames
-	if debug_camera_mode in ("processed", "raw"):
-		print("Displaying Debug Capture")
-		while not scanner.capture_stopped:
-			scanner.update_capture()
-			scanner.capture_line_data()
+
+	scanner.setHeight(0)
+
+	while scanner.getHeight() < SCAN_HEIGHT:
+		# Sample line over 10 frames
+		scanner.sample_laser_line(10)
+
+		# Display debug camera
+		if debug_camera_mode in ("processed", "raw") and not scanner.capture_stopped:
 			scanner.disp_capture(debug_camera_mode)
+		
+		# Tell controller to move scan head 0.1 mm
+		inc = 0.1
+		scanner.moveHeight(inc)
+		device.write(b'MOVE 0.1')
+		raw_data = device.readline()
+	
+	scanner.plot_points()
+	scanner.shutdown()
+
+	print("--------------------------FINISHED--------------------------")
+
 
 
 		

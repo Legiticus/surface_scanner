@@ -31,10 +31,8 @@ void zeroPosition();
 bool limitTriggered();
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.setTimeout(1000);
-
-  Serial.println(MAX_SPEED);
 
   pinMode(SENSE_PIN, INPUT);
 
@@ -45,10 +43,9 @@ void setup() {
   if (STEPS_PER_REV_ACTUAL % MM_PER_REV != 0) Serial.println("WARNING - STEPS_PER_MM is only approximate due to integer division!");
   if (STEPS_PER_MM % 100 != 0) Serial.println("WARNING - STEPS_PER_MM is not divisible by 100 which may lead to errors in zeroing the scanner head!");
 
-  Serial.println("DEBUG - Zeroing scanner assembly");
-  zeroPosition();
-  Serial.println("DEBUG - Zeroing Complete");
-  delay(10000);
+  //Serial.println("DEBUG - Zeroing scanner assembly");
+  //zeroPosition();
+  //Serial.println("DEBUG - Zeroing Complete");
 }
 
 void loop() {
