@@ -5,7 +5,7 @@
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+import open3d as o3d
 import cv2
 
 # Conservative Values
@@ -22,6 +22,9 @@ HIGH_RED_HIGH = np.array((180,255,255))
 
 MIN_TOTAL_INTENSITY = 50
 
+FRAME_WIDTH = 640
+FRAME_HEIGHT = 480
+
 class Scanner:
 
 	# @brief 			- the constructor for the scanner class
@@ -31,7 +34,7 @@ class Scanner:
 	def __init__(self, H: float, cam_angle: float, src: int = 0):
 
 		self.H = H
-		self.cam_angle = cam_angle
+		self.cam_angle = 180/np.pi * cam_angle
 
 		self.src = src
 		self.debug_camera_mode = "none"
@@ -112,6 +115,10 @@ class Scanner:
 	def connect(self):
 		print("Connecting to Camera...")
 		self.vcap = cv2.VideoCapture(0)
+		
+		# Set resolution
+		self.vcap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+		self.vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
 		# Check if the camera correctly opened
 		if not self.vcap.isOpened():
@@ -141,9 +148,10 @@ class Scanner:
 		# displaying camera feed if specified
 		if self.debug_camera_mode == "processed":
 			for point in self.laser_line:
-				row = int(point[1])
-				col = int(point[0])
-				self.processed_frame[(row-1):(row+2),col] = (0,255,0)
+				if not np.isnan(point).any():
+					row = int(point[1])
+					col = int(point[0])
+					self.processed_frame[row,col] = (0,255,0)
 			cv2.imshow('Camera Feed', self.processed_frame)
 		elif self.debug_camera_mode == "raw":
 			cv2.imshow('Camera Feed', self.frame)
@@ -154,7 +162,7 @@ class Scanner:
 	def __capture_line_data(self, weighted_frame):
 		current_gframe = weighted_frame
 		height, width = current_gframe.shape
-		self.laser_line = np.zeros((width,2))
+		self.laser_line = np.full((width,2), np.nan)
 		position_vector = np.arange(0,height)
 		# Iterate through collumns and determine line point via weighed average
 		for i in range(width):
@@ -190,7 +198,7 @@ class Scanner:
 		# calculates y cord in real world space
 		def y(u,v):
 			num = hz * (u - self.cu)
-			denom = self.fy * sint + (v - self.cv)
+			denom = self.fy * sint + (v - self.cv) * cost
 			if abs(denom) < 1e-14: raise ValueError("divide by zero")
 			return -self.fy/self.fx * num/denom
 
@@ -232,17 +240,14 @@ class Scanner:
 	# @brief exports the point data
 	# @return a copy of the points
 	def plot_points(self):
-
-		# Unpack points
-		X, Y, Z = zip(*self.total_points)
-
-		fig = plt.figure()
-		ax = fig.add_subplot(projection='3d')
-		ax.scatter(X, Y, Z)
-		ax.set_xlabel("X (mm)")
-		ax.set_ylabel("Y (mm)")
-		ax.set_zlabel("Z (mm)")
-		plt.show()
+		point_cloud = o3d.geometry.PointCloud()
+		point_cloud.points = o3d.utility.Vector3dVector(self.total_points)
+		coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+			size=1.0, 
+			origin=[0, 0, 0]
+		)
+		o3d.visualization.draw_geometries([point_cloud, coord_frame])
+		
 
 	# @brief Shuts down the scanner
 	def shutdown(self):

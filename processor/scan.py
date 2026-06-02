@@ -92,6 +92,13 @@ if __name__ == "__main__":
 	print('Sending ZERO Message to Controller')
 	device.write(b'ZERO\n')
 
+	####################
+	#	3. Connect to Camera
+	####################
+
+	scanner = Scanner(125,35,0)
+	scanner.connect()
+
 	# Getting response from Controller
 	raw_data = device.readline()
 	line = raw_data.decode('utf-8').strip()
@@ -104,19 +111,13 @@ if __name__ == "__main__":
 		print("COLLECTOR:", words)
 
 	####################
-	#	3. Connect to Camera
-	####################
-
-	scanner = Scanner(125,35,0)
-	scanner.connect()
-
-	####################
 	#	4. Display Feed and Take Measurements
 	####################
 
 	scanner.setHeight(0)
 
 	while scanner.getHeight() < SCAN_HEIGHT:
+		print(f"Current Scan Height: {scanner.getHeight()} mm")
 		# Sample line over 10 frames
 		scanner.sample_laser_line(10)
 
