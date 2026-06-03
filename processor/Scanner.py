@@ -34,7 +34,7 @@ class Scanner:
 	def __init__(self, H: float, cam_angle: float, src: int = 0):
 
 		self.H = H
-		self.cam_angle = 180/np.pi * cam_angle
+		self.cam_angle = np.radians(cam_angle)
 
 		self.src = src
 		self.debug_camera_mode = "none"
@@ -54,6 +54,8 @@ class Scanner:
 		self.total_points = []
 
 		# Calibration data
+		self.cam_matrix = None
+		self.dist_matrix = None
 		self.fx = 0
 		self.fy = 0
 		self.cu = 0
@@ -87,12 +89,13 @@ class Scanner:
 	def __read_calibration_data(self):
 		path = "./Calibration/camera_calibration.yaml"
 		cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
-		cam_matrix = cv_file.getNode("camera_matrix").mat()
+		self.cam_matrix = cv_file.getNode("camera_matrix").mat()
+		self.dist_matrix = cv_file.getNode("distortion_coefficients").mat()
 		cv_file.release()
-		self.fx = cam_matrix[0,0]
-		self.fy = cam_matrix[1,1]
-		self.cu = cam_matrix[0,2]
-		self.cv = cam_matrix[1,2]
+		self.fx = self.cam_matrix[0,0]
+		self.fy = self.cam_matrix[1,1]
+		self.cu = self.cam_matrix[0,2]
+		self.cv = self.cam_matrix[1,2]
 
 	def update_capture(self):
 		ret, frame = self.vcap.read()
@@ -102,7 +105,9 @@ class Scanner:
 			self.capture_stopped = True
 			return
 
-		self.frame = frame
+		# Undistort frame
+		undistorted_frame = cv2.undistort(frame, self.cam_matrix, self.dist_matrix)
+		self.frame = undistorted_frame
 		self.hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
 		# Masking out non-laser hsv values
@@ -186,19 +191,22 @@ class Scanner:
 		# Calculate commonly used calculations to save time and inprove readability
 		sint = np.sin(self.cam_angle)
 		cost = np.cos(self.cam_angle)
-		hz = self.H - self.current_z
+		hz = self.H
 
 		# calculates x cord in real world space
 		def x(u,v):
-			num = self.fy * cost - (v - self.cv) * sint
-			denom = self.fy * sint + (v - self.cv) * cost
+			vc = -v + self.cv
+			num = self.fy * cost - (vc) * sint
+			denom = self.fy * sint + (vc) * cost
 			if abs(denom) < 1e-14: raise ValueError("divide by zero")
 			return hz * num/denom
 
 		# calculates y cord in real world space
 		def y(u,v):
-			num = hz * (u - self.cu)
-			denom = self.fy * sint + (v - self.cv) * cost
+			vc = v - self.cv
+			uc = u - self.cu
+			num = hz * (uc)
+			denom = self.fy * sint + (vc) * cost
 			if abs(denom) < 1e-14: raise ValueError("divide by zero")
 			return -self.fy/self.fx * num/denom
 
@@ -235,7 +243,7 @@ class Scanner:
 	# @brief exports the point data
 	# @return a copy of the points
 	def export_points(self):
-		return self.points.copy()
+		return self.total_points.copy()
 	
 	# @brief exports the point data
 	# @return a copy of the points

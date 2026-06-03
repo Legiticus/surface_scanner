@@ -11,10 +11,12 @@ import serial
 import cv2
 import getopt
 import sys
+import open3d as o3d
 
 from Scanner import Scanner
+from gem_ball_test import BallPivoting, save_as_ply
 
-SCAN_HEIGHT = 10 #mm
+SCAN_HEIGHT = 100 #mm
 OPTIONS = "c:hv"
 
 is_verbose = False
@@ -128,13 +130,34 @@ if __name__ == "__main__":
 		# Tell controller to move scan head 0.1 mm
 		inc = 0.1
 		scanner.moveHeight(inc)
-		device.write(b'MOVE 0.1')
+		device.write(b'MOVE 0.1\n')
 		raw_data = device.readline()
 	
 	scanner.plot_points()
+	points = scanner.export_points()
+	np.save('point_data.npy', points)
 	scanner.shutdown()
 
 	print("--------------------------FINISHED--------------------------")
+
+	print("Calculating normals...")
+	normals = points / np.linalg.norm(points, axis=1)[:, None]
+	print("Preforming BPA...")
+	bpa = BallPivoting(points, normals, radius=0.22)
+	triangles = bpa.run()
+	print("Saving data as mesh...")
+	print(save_as_ply(triangles, points, filename="mesh_output.ply"))
+
+	print("Displaying mesh...")
+	# Load the mesh from the file
+	mesh = o3d.io.read_triangle_mesh("mesh_output.ply")
+
+	# Optional: If your ply file doesn't have vertex normals, 
+	# you might want to compute them to see lighting/shading
+	mesh.compute_vertex_normals()
+
+	# Visualize the mesh
+	o3d.visualization.draw_geometries([mesh])
 
 
 
