@@ -22,8 +22,8 @@ HIGH_RED_HIGH = np.array((180,255,255))
 
 MIN_TOTAL_INTENSITY = 50
 
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
+FRAME_WIDTH = 1920
+FRAME_HEIGHT = 1080
 
 class Scanner:
 
@@ -91,11 +91,16 @@ class Scanner:
 		cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
 		self.cam_matrix = cv_file.getNode("camera_matrix").mat()
 		self.dist_matrix = cv_file.getNode("distortion_coefficients").mat()
+		dim = cv_file.getNode("Dimensions").mat()
 		cv_file.release()
 		self.fx = self.cam_matrix[0,0]
 		self.fy = self.cam_matrix[1,1]
 		self.cu = self.cam_matrix[0,2]
 		self.cv = self.cam_matrix[1,2]
+		
+		# Check if calibration dimension aligns with setting
+		if FRAME_HEIGHT != dim[0] or FRAME_WIDTH != dim[1]:
+			raise ValueError(f"Calibration dimensions to not match setting: ({FRAME_WIDTH}, {FRAME_HEIGHT}) vs ({dim[0]}, {dim[1]})")
 
 	def update_capture(self):
 		ret, frame = self.vcap.read()
@@ -106,8 +111,8 @@ class Scanner:
 			return
 
 		# Undistort frame
-		undistorted_frame = cv2.undistort(frame, self.cam_matrix, self.dist_matrix)
-		self.frame = undistorted_frame
+		#undistorted_frame = cv2.undistort(frame, self.cam_matrix, self.dist_matrix)
+		self.frame = frame
 		self.hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
 		# Masking out non-laser hsv values
@@ -195,7 +200,7 @@ class Scanner:
 
 		# calculates x cord in real world space
 		def x(u,v):
-			vc = -v + self.cv
+			vc = v - self.cv
 			num = self.fy * cost - (vc) * sint
 			denom = self.fy * sint + (vc) * cost
 			if abs(denom) < 1e-14: raise ValueError("divide by zero")

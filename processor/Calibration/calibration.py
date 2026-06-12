@@ -21,9 +21,10 @@ objp3d[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 images = glob.glob('./images/*.jpg')
 
 image_shape = None
-
+dimension = None
 for filename in images:
 	image = cv2.imread(filename)
+	dimension = image.shape
 	image_shape = image.shape[:2][::-1]
 	grayColor = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -76,5 +77,6 @@ cv_file.write("Reprojection Error", ret)
 cv_file.write("camera_matrix", matrix)
 cv_file.write("distortion_coefficients", distortion)
 cv_file.write("reprojection_error", ret)
+cv_file.write("Dimensions", dimension)
 cv_file.release()
 print(f"Calibration data stored in {filename}")

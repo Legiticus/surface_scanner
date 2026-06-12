@@ -21,3 +21,4 @@ platformio.ini.old
 # --- General ---
 .DS_Store
 .env
+./processor/test

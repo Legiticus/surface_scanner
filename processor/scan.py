@@ -14,10 +14,10 @@ import sys
 import open3d as o3d
 
 from Scanner import Scanner
-from gem_ball_test import BallPivoting, save_as_ply
 
-SCAN_HEIGHT = 100 #mm
-OPTIONS = "c:hv"
+SCAN_HEIGHT = 10 #mm
+SCAN_STEP = 0.1
+OPTIONS = "H:S:c:hv"
 
 is_verbose = False
 debug_camera_mode = "none"
@@ -40,6 +40,8 @@ if __name__ == "__main__":
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			print("Usage: scan [OPTIONS]")
+			print("\t-H  flt\t\tSets the scan height in mm (10 by default)")
+			print("\t-S  flt\t\tSets the scan step in mm (0.1 by default) <- Careful with step size as rounding errors can cause misalignment")
 			print("\t-c  str\t\tConfigures debug camera with mode \"none\", \"processed\" or \"raw\" (\"none\" by default)")
 			print("\t-v\t\tEnables verbose output")
 			print("\t-h\t\tPrints help text")
@@ -56,6 +58,20 @@ if __name__ == "__main__":
 				sys.exit(1) # Exit failure
 			else:
 				debug_camera_mode = arg
+		elif opt in ("-H", "--height"):
+			try:
+				SCAN_HEIGHT = float(arg)
+			except:
+				print(f"Invalid argument for scan height: \"{arg}\"")
+				sys.exit(1)
+		elif opt in ("-S", "--step"):
+			try:
+				SCAN_STEP = float(arg)
+			except:
+				print(f"Invalid argument for scan step: \"{arg}\"")
+				sys.exit(1)
+	
+
 
 
 
@@ -118,8 +134,10 @@ if __name__ == "__main__":
 
 	scanner.setHeight(0)
 
+	print(f"STARTING SCAN:\tSTEP={SCAN_STEP:.3g} mm\tHEIGHT={SCAN_HEIGHT} mm")
+
 	while scanner.getHeight() < SCAN_HEIGHT:
-		print(f"Current Scan Height: {scanner.getHeight()} mm")
+		print(f"Current Scan Height: {scanner.getHeight():.4f} mm")
 		# Sample line over 10 frames
 		scanner.sample_laser_line(10)
 
@@ -128,10 +146,15 @@ if __name__ == "__main__":
 			scanner.disp_capture(debug_camera_mode)
 		
 		# Tell controller to move scan head 0.1 mm
-		inc = 0.1
-		scanner.moveHeight(inc)
-		device.write(b'MOVE 0.1\n')
+		scanner.moveHeight(SCAN_STEP)
+		device.write(f"MOVE {SCAN_STEP}\n".encode("utf-8"))
 		raw_data = device.readline()
+		line = raw_data.decode('utf-8').strip()
+		words = line.split(maxsplit=1)
+		if words[0] != "MOVE_SUCCESS":
+			print("COLLECTOR:\t", words)
+			print("Error zeroing scan head, exiting...")
+			exit(1)
 	
 	scanner.plot_points()
 	points = scanner.export_points()
@@ -140,24 +163,7 @@ if __name__ == "__main__":
 
 	print("--------------------------FINISHED--------------------------")
 
-	print("Calculating normals...")
-	normals = points / np.linalg.norm(points, axis=1)[:, None]
-	print("Preforming BPA...")
-	bpa = BallPivoting(points, normals, radius=0.22)
-	triangles = bpa.run()
-	print("Saving data as mesh...")
-	print(save_as_ply(triangles, points, filename="mesh_output.ply"))
 
-	print("Displaying mesh...")
-	# Load the mesh from the file
-	mesh = o3d.io.read_triangle_mesh("mesh_output.ply")
-
-	# Optional: If your ply file doesn't have vertex normals, 
-	# you might want to compute them to see lighting/shading
-	mesh.compute_vertex_normals()
-
-	# Visualize the mesh
-	o3d.visualization.draw_geometries([mesh])
 
 
 

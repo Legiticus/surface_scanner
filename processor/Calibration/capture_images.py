@@ -8,8 +8,19 @@
 import cv2
 from datetime import date
 
+HEIGHT = 1080
+WIDTH = 1920
+
 print("Openning video capture...")
 cap = cv2.VideoCapture(0)
+
+# Change resolution
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+
+# Check the current resolution (will print 640.0 x 480.0 by default)
+print("Width:", cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+print("Height:", cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 print("Press s to same image and q to quit")
 
