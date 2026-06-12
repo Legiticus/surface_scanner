@@ -15,14 +15,14 @@ import open3d as o3d
 
 from Scanner import Scanner
 
-SCAN_HEIGHT = 10 #mm
+SCAN_HEIGHT = 20 #mm
 SCAN_STEP = 0.1
 OPTIONS = "H:S:c:hv"
 
 is_verbose = False
 debug_camera_mode = "none"
 
-
+save_path = "./data/point_data.npy"
 
 if __name__ == "__main__":
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			print("Usage: scan [OPTIONS]")
-			print("\t-H  flt\t\tSets the scan height in mm (10 by default)")
+			print("\t-H  flt\t\tSets the scan height in mm (20 mm by default)")
 			print("\t-S  flt\t\tSets the scan step in mm (0.1 by default) <- Careful with step size as rounding errors can cause misalignment")
 			print("\t-c  str\t\tConfigures debug camera with mode \"none\", \"processed\" or \"raw\" (\"none\" by default)")
 			print("\t-v\t\tEnables verbose output")
@@ -158,7 +158,8 @@ if __name__ == "__main__":
 	
 	scanner.plot_points()
 	points = scanner.export_points()
-	np.save('point_data.npy', points)
+	print(f"Saving file to {save_path}")
+	np.save(save_path, points)
 	scanner.shutdown()
 
 	print("--------------------------FINISHED--------------------------")
